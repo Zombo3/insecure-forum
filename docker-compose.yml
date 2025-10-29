@@ -1,0 +1,18 @@
+services:
+  api:
+    build:
+      context: /home/sdagher/insecure-forum
+      dockerfile: server/Dockerfile
+    container_name: insecure-forum-api
+    expose:
+      - "3000"
+
+  web:
+    build:
+      context: /home/sdagher/insecure-forum
+      dockerfile: nginx/Dockerfile
+    container_name: insecure-forum-web
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api

@@ -1,0 +1,15 @@
+<nav class="nav">
+<a href="/" class="brand">Insecure Forum</a>
+<a href="/comments">Feed</a>
+<a href="/comment/new">New Comment</a>
+<span class="spacer"></span>
+{{#if currentUser}}
+<span class="user">  {{currentUser}}</span>
+<form action="/logout" method="POST" style="display:inline">
+<button type="submit" class="linklike">Logout</button>
+</form>
+{{else}}
+<a href="/register">Register</a>
+<a href="/login">Login</a>
+{{/if}}
+</nav>

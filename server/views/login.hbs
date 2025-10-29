@@ -1,0 +1,10 @@
+<section class="card">
+<h2>Login</h2>
+{{#if error}}<p class="error">{{error}}</p>{{/if}}
+{{#if message}}<p class="message">{{message}}</p>{{/if}}
+<form method="POST" action="/login">
+<label>Username <input name="username" required /></label>
+<label>Password <input name="password" type="password" required /></label>
+<button type="submit">Login</button>
+</form>
+</section>

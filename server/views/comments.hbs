@@ -1,0 +1,15 @@
+<section>
+<h2>All Comments</h2>
+{{#if comments.length}}
+<ul class="comments">
+{{#each comments}}
+<li class="comment">
+<div class="meta">By <strong>{{author}}</strong> on {{formatDate createdAt}}</div>
+<div class="text">{{{text}}}</div>
+</li>
+{{/each}}
+</ul>
+{{else}}
+<p>No comments yet.</p>
+{{/if}}
+</section>

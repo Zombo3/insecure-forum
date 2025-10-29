@@ -1,0 +1,10 @@
+<section class="card">
+<h2>Create Account</h2>
+{{#if error}}<p class="error">{{error}}</p>{{/if}}
+<form method="POST" action="/register">
+<label>Username <input name="username" required /></label>
+<label>Password <input name="password" type="password" required /></label>
+<button type="submit">Register</button>
+</form>
+<p>Already have an account? <a href="/login">Login</a></p>
+</section>

@@ -1,0 +1,10 @@
+<section class="card">
+<h2>New Comment</h2>
+{{#if error}}<p class="error">{{error}}</p>{{/if}}
+<form method="POST" action="/comment">
+<label>Comment Text
+<textarea name="text" rows="5" placeholder="Say something (this will be rendered unescaped)"></textarea>
+</label>
+<button type="submit">Post</button>
+</form>
+</section>
