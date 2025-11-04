@@ -22,7 +22,7 @@ const comments = [
     text: '<b>Hello world!</b> Try some <script>alert("XSS")</script>',
     createdAt: new Date()
   },
-  { author: 'bob', text: 'This is intentionally insecure 🙂', createdAt: new Date() }
+  { author: 'bob', text: 'This is intentionally insecure', createdAt: new Date() }
 ];
 
 const sessions = new Map(); // sessionId -> { user, expires }
@@ -39,8 +39,8 @@ app.engine('hbs',engine({
 app.set('view engine', 'hbs');
 app.set('views', path.join(__dirname, 'views'));
 
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
+app.use(express.urlencoded({ extended: false })); //parse from bodies
+app.use(cookieParser()); // read cookies into req.cookies
 
 // Static files are served by Nginx at /static/, so this route just reminds us:
 app.get('/static/*', (req, res) => res.status(404).send('Static is served by Nginx container'));
@@ -63,10 +63,6 @@ app.use((req, res, next) => {
   res.locals.currentUser = getCurrentUser(req);
   next();
 });
-
-/* =========================
-   Routes
-   ========================= */
 
 // Home
 app.get('/', (req, res) => {
