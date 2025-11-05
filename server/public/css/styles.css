@@ -1,24 +1,4 @@
-/* :root { --bg:#0b0e14; --fg:#e6e6e6; --muted:#96a0b5; --accent:#6ee7ff; --error:#ff6b6b; }
-*{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--fg)}
-.container{max-width:900px;margin:2rem auto;padding:0 1rem}
-.nav{display:flex;gap:1rem;align-items:center;padding:1rem;border-bottom:1px solid #222;background:#0f1320}
-.nav a{color:var(--fg);text-decoration:none;opacity:.9}
-.nav .brand{font-weight:700}
-.nav .spacer{flex:1}
-.linklike{background:none;border:none;color:var(--fg);cursor:pointer;text-decoration:underline}
-.footer{margin-top:3rem;padding:1rem;border-top:1px solid #222;color:var(--muted);text-align:center}
-.card{background:#0f1320;border:1px solid #1a2234;border-radius:12px;padding:1rem}
-label{display:block;margin:.5rem 0}
-input,textarea,button{width:100%;padding:.6rem;border-radius:8px;border:1px solid #1a2234;background:#0b1220;color:var(--fg)}
-button{margin-top:.5rem;background:linear-gradient(90deg,#1e3a8a,#2563eb);border:none}
-.error{color:var(--error)}
-.message{color:var(--accent)}
-.comments{list-style:none;padding:0;display:grid;gap:1rem}
-.comment{padding:1rem;border:1px solid #1a2234;border-radius:12px;background:#0f1320}
-.meta{color:var(--muted);font-size:.9rem;margin-bottom:.5rem}
-.btn{display:inline-block;padding:.6rem 1rem;border-radius:10px;background:#2563eb;color:white;text-decoration:none} */
 
-/* 💥 Zombo³ Alley — Max Loud Graffiti Theme (crisp titles + richer background) */
 
 @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Rubik+Glitch&family=Press+Start+2P&family=Bangers&family=Monoton&display=swap');
 
