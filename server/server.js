@@ -16,14 +16,7 @@ const users = [
   { username: 'bob', password: '1234' }
 ];
 
-const comments = [
-  {
-    author: 'alice',
-    text: '<b>Hello world!</b> Try some <script>alert("XSS")</script>',
-    createdAt: new Date()
-  },
-  { author: 'bob', text: 'This is intentionally insecure', createdAt: new Date() }
-];
+const comments = [];
 
 const sessions = new Map(); // sessionId -> { user, expires }
 
