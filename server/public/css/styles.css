@@ -20,7 +20,7 @@
 /* Background: bold stripes + dots + moving neon haze */
 body{
   min-height:100vh;
-  color:var(--paper);
+  color:var(--sun);
   background:
     /* bright paint splats */
     radial-gradient(circle at 12% 18%, rgba(255,43,191,.20) 0 18%, transparent 19%),

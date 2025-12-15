@@ -1,0 +1,98 @@
+<h1>Your Profile</h1>
+
+<div style="margin: 12px 0; padding: 12px; border: 1px solid #ddd; border-radius: 8px;">
+  <p><strong>Username:</strong> {{user.username}}</p>
+  <p><strong>Email:</strong> {{user.email}}</p>
+
+  <p>
+    <strong>Display name:</strong>
+    <span style="color: {{user.name_color}};">{{user.display_name}}</span>
+  </p>
+
+  <p><strong>Bio:</strong> {{user.bio}}</p>
+  <p><strong>Avatar:</strong> {{user.avatar}}</p>
+</div>
+
+<hr>
+
+<h2>Change Display Name</h2>
+<form method="POST" action="/profile/display-name" style="margin-bottom: 16px;">
+  <input
+    type="text"
+    name="display_name"
+    value="{{user.display_name}}"
+    required
+    minlength="2"
+    maxlength="32"
+  />
+  <button type="submit">Update</button>
+  <p style="opacity: 0.8; margin-top: 6px;">
+    This updates your display name and updates your existing comments.
+  </p>
+</form>
+
+<hr>
+
+<h2>Customize Profile</h2>
+<form method="POST" action="/profile/customize" style="margin-bottom: 16px;">
+  <div style="margin-bottom: 10px;">
+    <label><strong>Name color:</strong></label><br />
+    <input type="color" name="name_color" value="{{user.name_color}}" />
+    <small style="opacity: 0.75;">(must be #RRGGBB)</small>
+  </div>
+
+  <div style="margin-bottom: 10px;">
+    <label><strong>Avatar URL or label:</strong></label><br />
+    <input type="text" name="avatar" value="{{user.avatar}}" maxlength="200" style="width: 100%;" />
+  </div>
+
+  <div style="margin-bottom: 10px;">
+    <label><strong>Bio:</strong></label><br />
+    <textarea name="bio" rows="3" maxlength="280" style="width: 100%;">{{user.bio}}</textarea>
+  </div>
+
+  <button type="submit">Save</button>
+</form>
+
+<hr>
+
+<h2>Change Email</h2>
+<form method="POST" action="/profile/email" style="margin-bottom: 16px;">
+  <div style="margin-bottom: 10px;">
+    <label><strong>New email:</strong></label><br />
+    <input type="email" name="email" value="{{user.email}}" required style="width: 100%;" />
+  </div>
+
+  <div style="margin-bottom: 10px;">
+    <label><strong>Confirm password:</strong></label><br />
+    <input type="password" name="password" required style="width: 100%;" />
+  </div>
+
+  <button type="submit">Update Email</button>
+</form>
+
+<hr>
+
+<h2>Change Password</h2>
+<form method="POST" action="/profile/password">
+  <div style="margin-bottom: 10px;">
+    <label><strong>Current password:</strong></label><br />
+    <input type="password" name="current_password" required style="width: 100%;" />
+  </div>
+
+  <div style="margin-bottom: 10px;">
+    <label><strong>New password:</strong></label><br />
+    <input type="password" name="new_password" required style="width: 100%;" />
+  </div>
+
+  <div style="margin-bottom: 10px;">
+    <label><strong>Confirm new password:</strong></label><br />
+    <input type="password" name="confirm_password" required style="width: 100%;" />
+  </div>
+
+  <button type="submit">Update Password</button>
+
+  <p style="opacity: 0.8; margin-top: 6px;">
+    After changing password, you’ll be logged out everywhere and must log in again.
+  </p>
+</form>

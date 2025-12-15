@@ -1,16 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>{{title}} | The Zombo3 Zone</title>
-<link rel="stylesheet" href="/public/css/styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{title}} | The Zombo3 Zone</title>
+  <link rel="stylesheet" href="/public/css/styles.css">
 </head>
 <body>
-{{> nav }}
-<main class="container">
-{{{ body }}}
-</main>
-{{> footer }}
+  {{> nav }}
+
+  <main class="container">
+    {{{ body }}}
+  </main>
+
+  {{> footer }}
+
+  <!-- Socket.IO client (served by the same server) -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+  window.socket = window.socket || io();
+
+  window.socket.on('connect', () => {
+    console.log('socket connected', window.socket.id);
+  });
+
+  window.socket.on('connect_error', (e) => {
+    console.log('socket connect_error', e.message);
+  });
+</script>
 </body>
 </html>

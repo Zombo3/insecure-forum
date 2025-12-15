@@ -1,15 +1,40 @@
-<section>
-<h2>All Comments</h2>
+<h1>{{title}}</h1>
+
+<p>
+  Total comments: {{pagination.totalComments}} |
+  Page {{pagination.page}} of {{pagination.totalPages}}
+</p>
+
 {{#if comments.length}}
-<ul class="comments">
-{{#each comments}}
-<li class="comment">
-<div class="meta">By <strong>{{author}}</strong> on {{formatDate createdAt}}</div>
-<div class="text">{{{text}}}</div>
-</li>
-{{/each}}
-</ul>
+  <ul>
+    {{#each comments}}
+      <li>
+        <strong>{{author}}</strong>
+        <span>({{formatDate createdAt}})</span>
+        <div>{{text}}</div>
+      </li>
+      <hr />
+    {{/each}}
+  </ul>
 {{else}}
-<p>No comments yet.</p>
+  <p>No comments yet.</p>
 {{/if}}
-</section>
+
+<nav style="margin-top: 16px;">
+  {{#if pagination.hasPrev}}
+    <a href="/comments?page={{pagination.prevPage}}">Previous</a>
+  {{/if}}
+
+  <span style="margin: 0 12px;">
+    Page {{pagination.page}} / {{pagination.totalPages}}
+  </span>
+
+  {{#if pagination.hasNext}}
+    <a href="/comments?page={{pagination.nextPage}}">Next</a>
+  {{/if}}
+</nav>
+
+<p style="margin-top: 16px;">
+  <a href="/comment/new">New Comment</a>
+</p>
+
