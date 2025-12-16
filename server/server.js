@@ -172,13 +172,18 @@ app.get('/static/*', (req, res) =>
 );
 
 // Make currentUser available to templates (DB-backed)
+// Make currentUser available to templates (DB-backed)
 app.use(async (req, res, next) => {
   try {
     await cleanupExpiredSessionsIfNeeded();
     res.locals.currentUser = await getCurrentUser(req);
+
+    // also attach user to req for routes that expect req.user
+    req.user = res.locals.currentUser;
   } catch (err) {
     console.error('currentUser middleware error:', err);
     res.locals.currentUser = null;
+    req.user = null;
   }
   next();
 });
@@ -903,23 +908,48 @@ app.get('/comments', async (req, res) => {
     let page = parseInt(req.query.page || '1', 10);
     if (Number.isNaN(page) || page < 1) page = 1;
 
-    const countRow = await dbGet('SELECT COUNT(*) AS total FROM comments');
+    const countRow = await dbGet(
+      'SELECT COUNT(*) AS total FROM comments'
+    );
     const totalComments = countRow ? countRow.total : 0;
 
-    const totalPages = Math.max(1, Math.ceil(totalComments / perPage));
+    const totalPages = Math.max(
+      1,
+      Math.ceil(totalComments / perPage)
+    );
     if (page > totalPages) page = totalPages;
 
     const offset = (page - 1) * perPage;
 
+    const viewerUserId = req.user ? req.user.id : null;
+
     const rows = await dbAll(
-      `SELECT id,
-              display_name AS author,
-              text,
-              created_at AS createdAt
-       FROM comments
-       ORDER BY created_at DESC
-       LIMIT ? OFFSET ?`,
-      [perPage, offset]
+      `
+      SELECT
+        c.id,
+        c.display_name AS author,
+        c.text,
+        c.created_at AS createdAt,
+        COALESCE(lc.like_count, 0) AS like_count,
+        CASE
+          WHEN ml.user_id IS NULL THEN 0
+          ELSE 1
+        END AS liked_by_me
+      FROM comments c
+      LEFT JOIN (
+        SELECT
+          comment_id,
+          COUNT(*) AS like_count
+        FROM comment_likes
+        GROUP BY comment_id
+      ) lc ON lc.comment_id = c.id
+      LEFT JOIN comment_likes ml
+        ON ml.comment_id = c.id
+       AND ml.user_id = ?
+      ORDER BY c.created_at DESC
+      LIMIT ? OFFSET ?
+      `,
+      [viewerUserId, perPage, offset]
     );
 
     res.render('comments', {
@@ -941,6 +971,7 @@ app.get('/comments', async (req, res) => {
     res.status(500).send('Server error');
   }
 });
+
 
 // New comment form (GET)
 app.get('/comment/new', async (req, res) => {
@@ -1012,6 +1043,132 @@ app.post('/comment/:id/delete', async (req, res) => {
   }
 });
 
+// Edit comment (GET) - show edit form (only your own comment)
+app.get('/comment/:id/edit', async (req, res) => {
+  try {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return res
+        .status(401)
+        .render('login', { title: 'Login', error: 'Please log in to edit comments.' });
+    }
+
+    const commentId = parseInt(req.params.id, 10);
+    if (Number.isNaN(commentId)) return res.status(400).send('Invalid comment id');
+
+    const row = await dbGet(
+      `SELECT id, user_id, text
+       FROM comments
+       WHERE id = ?
+       LIMIT 1`,
+      [commentId]
+    );
+
+    if (!row) return res.status(404).send('Comment not found');
+
+    if (row.user_id !== user.id) {
+      return res.status(403).send('You can only edit your own comments');
+    }
+
+    res.render('edit-comment', {
+      title: 'Edit Comment',
+      comment: {
+        id: row.id,
+        text: row.text
+      }
+    });
+  } catch (err) {
+    console.error('Edit comment GET error:', err);
+    res.status(500).send('Server error');
+  }
+});
+
+// Edit comment (POST) - save changes (only your own comment)
+app.post('/comment/:id/edit', async (req, res) => {
+  try {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return res
+        .status(401)
+        .render('login', { title: 'Login', error: 'Please log in to edit comments.' });
+    }
+
+    const commentId = parseInt(req.params.id, 10);
+    if (Number.isNaN(commentId)) return res.status(400).send('Invalid comment id');
+
+    const text = String(req.body.text || '').trim();
+    if (!text) return res.status(400).send('Comment text cannot be empty');
+
+    const row = await dbGet(`SELECT user_id FROM comments WHERE id = ?`, [commentId]);
+    if (!row) return res.status(404).send('Comment not found');
+
+    if (row.user_id !== user.id) {
+      return res.status(403).send('You can only edit your own comments');
+    }
+
+    await dbRun(
+      `UPDATE comments SET text = ? WHERE id = ?`,
+      [text, commentId]
+    );
+
+    res.redirect('/comments');
+  } catch (err) {
+    console.error('Edit comment POST error:', err);
+    res.status(500).send('Server error');
+  }
+});
+
+app.post('/comment/:id/like', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'not logged in' });
+    }
+
+    const commentId = parseInt(req.params.id, 10);
+    if (Number.isNaN(commentId)) {
+      return res.status(400).json({ error: 'bad comment id' });
+    }
+
+    const userId = req.user.id;
+    const now = Date.now();
+
+    // Confirm the comment exists (prevents liking deleted/nonexistent ids)
+    const commentRow = await dbGet('SELECT id FROM comments WHERE id = ?', [commentId]);
+    if (!commentRow) {
+      return res.status(404).json({ error: 'comment not found' });
+    }
+
+    const existing = await dbGet(
+      'SELECT 1 FROM comment_likes WHERE comment_id = ? AND user_id = ?',
+      [commentId, userId]
+    );
+
+    if (existing) {
+      await dbRun(
+        'DELETE FROM comment_likes WHERE comment_id = ? AND user_id = ?',
+        [commentId, userId]
+      );
+    } else {
+      await dbRun(
+        'INSERT INTO comment_likes (comment_id, user_id, created_at) VALUES (?, ?, ?)',
+        [commentId, userId, now]
+      );
+    }
+
+    const countRow = await dbGet(
+      'SELECT COUNT(*) AS like_count FROM comment_likes WHERE comment_id = ?',
+      [commentId]
+    );
+
+    res.json({
+      liked: !existing,
+      like_count: countRow ? countRow.like_count : 0
+    });
+  } catch (err) {
+    console.error('Like toggle error:', err);
+    res.status(500).json({ error: 'server error' });
+  }
+});
 
 // Start server after DB init
 (async () => {

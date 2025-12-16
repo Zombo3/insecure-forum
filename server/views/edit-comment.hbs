@@ -1,0 +1,15 @@
+<h1>{{title}}</h1>
+
+<form method="POST" action="/comment/{{comment.id}}/edit">
+  <div style="margin-bottom: 12px;">
+    <textarea
+      name="text"
+      rows="6"
+      style="width: 100%;"
+      required
+    >{{comment.text}}</textarea>
+  </div>
+
+  <button type="submit">Save Changes</button>
+  <a href="/comments" style="margin-left: 12px;">Cancel</a>
+</form>

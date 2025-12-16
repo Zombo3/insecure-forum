@@ -7,29 +7,48 @@
 
 {{#if comments.length}}
   <ul>
-  {{#each comments}}
-    <li>
-      <strong>{{author}}</strong>
-      <span>({{formatDate createdAt}})</span>
+    {{#each comments}}
+      <li>
+        <strong>{{author}}</strong>
+        <span>({{formatDate createdAt}})</span>
 
-      <div>{{text}}</div>
+        <div>{{text}}</div>
 
-      {{#if ../currentUser}}
-        {{#if (eq author ../currentUser.display_name)}}
-          <form
-            method="POST"
-            action="/comment/{{id}}/delete"
-            style="margin-top: 6px;"
+        <div style="margin-top: 6px;">
+          <button
+            type="button"
+            class="like-btn"
+            data-comment-id="{{id}}"
+            data-liked="{{liked_by_me}}"
+            {{#unless ../currentUser}}disabled{{/unless}}
           >
-            <button type="submit">Delete</button>
-          </form>
-        {{/if}}
-      {{/if}}
-    </li>
-    <hr />
-  {{/each}}
-</ul>
+            {{#if liked_by_me}}Unlike{{else}}Like{{/if}}
+          </button>
 
+          <span class="like-count" data-comment-id="{{id}}">
+            {{like_count}}
+          </span>
+        </div>
+
+        {{#if ../currentUser}}
+          {{#if (eq author ../currentUser.display_name)}}
+            <div style="margin-top: 6px;">
+              <a href="/comment/{{id}}/edit">Edit</a>
+
+              <form
+                method="POST"
+                action="/comment/{{id}}/delete"
+                style="display:inline; margin-left: 8px;"
+              >
+                <button type="submit">Delete</button>
+              </form>
+            </div>
+          {{/if}}
+        {{/if}}
+      </li>
+      <hr />
+    {{/each}}
+  </ul>
 {{else}}
   <p>No comments yet.</p>
 {{/if}}
@@ -51,4 +70,50 @@
 <p style="margin-top: 16px;">
   <a href="/comment/new">New Comment</a>
 </p>
+
+<script>
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.like-btn');
+    if (!btn) return;
+    if (btn.disabled) return;
+
+    const commentId = btn.getAttribute('data-comment-id');
+
+    try {
+      const resp = await fetch(`/comment/${commentId}/like`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!resp.ok) {
+        const txt = await resp.text();
+        console.error('Like request failed:', resp.status, txt);
+        alert(`Like failed (${resp.status}). Check server logs.`);
+        return;
+      }
+
+      const data = await resp.json();
+
+      const countEl = document.querySelector(`.like-count[data-comment-id="${commentId}"]`);
+
+      btn.setAttribute('data-liked', data.liked ? '1' : '0');
+      btn.textContent = data.liked ? 'Unlike' : 'Like';
+
+      if (countEl) {
+        if (typeof data.like_count === 'number') {
+          countEl.textContent = String(data.like_count);
+        } else {
+          // fallback, just in case
+          const currentCount = parseInt((countEl.textContent || '0').trim(), 10) || 0;
+          const newCount = data.liked ? currentCount + 1 : Math.max(0, currentCount - 1);
+          countEl.textContent = String(newCount);
+        }
+      }
+
+    } catch (err) {
+      console.error(err);
+    }
+  });
+</script>
 
