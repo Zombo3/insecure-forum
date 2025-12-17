@@ -235,20 +235,6 @@ function isStrongPassword(pw) {
   );
 }
 
-const mailer = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  },
-
-  // Prevent “stuck loading” forever:
-  connectionTimeout: 10_000, // 10s
-  greetingTimeout: 10_000, // 10s
-  socketTimeout: 10_000 // 10s
-});
 
 // =====================
 // Routes
@@ -264,13 +250,17 @@ io.on('connection', async (socket) => {
   try {
     const rows = await dbAll(
       `
-      SELECT display_name AS user,
-             message AS text,
-             created_at AS timestamp,
-             room_id
-      FROM chat_messages
-      WHERE room_id = 1
-      ORDER BY created_at DESC
+      SELECT
+        u.display_name AS user,
+        u.name_color AS name_color,
+        u.avatar AS avatar,
+        cm.message AS text,
+        cm.created_at AS timestamp,
+        cm.room_id
+      FROM chat_messages cm
+      JOIN users u ON u.id = cm.user_id
+      WHERE cm.room_id = 1
+      ORDER BY cm.created_at DESC
       LIMIT ?
       `,
       [HISTORY_LIMIT]
@@ -284,37 +274,39 @@ io.on('connection', async (socket) => {
 
   socket.on('chat:send', async (data) => {
     try {
-      console.log('CHAT: received chat:send from', socket.user, 'data=', data);
-
       if (!data || typeof data.text !== 'string') return;
-
-      const text = data.text.trim();
-      if (!text) return;
 
       const now = Date.now();
 
-      // Persist message
       await dbRun(
-        `INSERT INTO chat_messages (room_id, user_id, display_name, message, created_at)
-         VALUES (1, ?, ?, ?, ?)`,
-        [socket.user.id, socket.user.display_name, text, now]
+        `INSERT INTO chat_messages
+         (user_id, display_name, name_color, avatar, message, created_at, room_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          socket.user.id,
+          socket.user.display_name,
+          socket.user.name_color || null,
+          socket.user.avatar || null,
+          data.text,
+          now,
+          1
+        ]
       );
 
-      // Broadcast to everyone
       io.emit('chat:message', {
         user: socket.user.display_name,
-        text,
-        timestamp: now
+        name_color: socket.user.name_color,
+        avatar: socket.user.avatar,
+        text: data.text,
+        timestamp: now,
+        room_id: 1
       });
     } catch (err) {
-      console.error('chat send error:', err);
+      console.error('Failed to handle chat message:', err);
     }
   });
-
-  socket.on('disconnect', () => {
-    console.log('Socket disconnected:', socket.id);
-  });
 });
+
 
 // Home
 app.get('/', (req, res) => {
@@ -549,206 +541,11 @@ app.post('/logout', async (req, res) => {
   res.redirect('/');
 });
 
-/* ============================
-   PASSWORD RECOVERY (Step 1)
-============================ */
+/* ===============
+   PROFILE ROUTES 
+================= */
 
-// Forgot password (GET)
-app.get('/forgot-password', (req, res) => {
-  res.render('forgot-password', { title: 'Forgot Password' });
-});
-
-// Forgot password (POST) - create token in DB and show "sent" message
-app.post('/forgot-password', async (req, res) => {
-  try {
-    const email = String(req.body.email || '').trim().toLowerCase();
-    const now = Date.now();
-
-    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    if (!emailOk) {
-      return res.status(400).render('forgot-password', {
-        title: 'Forgot Password',
-        error: 'Invalid email format.'
-      });
-    }
-
-    const message = 'If the email exists, we sent a reset link.';
-
-    const user = await dbGet(`SELECT id FROM users WHERE email = ?`, [email]);
-    if (!user) {
-      return res.render('forgot-password', { title: 'Forgot Password', message });
-    }
-
-    // Create raw token (goes in link) + store hash in DB
-    const token = crypto.randomBytes(32).toString('hex');
-    const token_hash = crypto.createHash('sha256').update(token).digest('hex');
-    const expiresAt = now + 30 * 60 * 1000; // 30 minutes
-
-    await dbRun(
-      `INSERT INTO password_resets (user_id, token_hash, expires_at, used, created_at)
-       VALUES (?, ?, ?, 0, ?)`,
-      [user.id, token_hash, expiresAt, now]
-    );
-
-    const resetLink = `${process.env.APP_BASE_URL}/reset-password?token=${token}`;
-    console.log('MAIL: sending reset email to:', email);
-
-    await mailer.sendMail({
-      from: process.env.SMTP_FROM,
-      to: email,
-      subject: 'Password Reset - Less Wild West Forum',
-      text: `You requested a password reset.\n\nReset your password using this link:\n${resetLink}\n\nIf you did not request this, ignore this email.`
-    });
-    console.log('MAIL: sendMail finished');
-
-    return res.render('forgot-password', { title: 'Forgot Password', message });
-  } catch (err) {
-    console.error('forgot-password error:', err);
-    return res.status(500).render('forgot-password', {
-      title: 'Forgot Password',
-      error: 'Server error. Please try again.'
-    });
-  }
-});
-
-// Reset password (GET)
-app.get('/reset-password', async (req, res) => {
-  try {
-    const token = String(req.query.token || '').trim();
-    const now = Date.now();
-
-    if (!token) {
-      return res.status(400).render('reset-password', {
-        title: 'Reset Password',
-        error: 'Missing token.'
-      });
-    }
-
-    console.log('RESET DEBUG token:', token);
-
-    const token_hash = crypto.createHash('sha256').update(token).digest('hex');
-    console.log('RESET DEBUG token_hash:', token_hash);
-
-    const row = await dbGet(
-      `SELECT user_id, expires_at, used
-       FROM password_resets
-       WHERE token_hash = ?
-       LIMIT 1`,
-      [token_hash]
-    );
-
-    console.log('RESET DEBUG row:', row);
-    console.log('RESET DEBUG now:', now);
-
-    if (!row || row.used !== 0 || row.expires_at < now) {
-      return res.status(400).render('reset-password', {
-        title: 'Reset Password',
-        error: 'Invalid or expired reset link.'
-      });
-    }
-
-    return res.render('reset-password', { title: 'Reset Password', token });
-  } catch (err) {
-    console.error('reset-password GET error:', err);
-    return res.status(500).render('reset-password', {
-      title: 'Reset Password',
-      error: 'Server error. Please try again.'
-    });
-  }
-});
-
-// Reset password (POST)
-app.post('/reset-password', async (req, res) => {
-  try {
-    const token = String(req.body.token || '').trim();
-    const new_password = String(req.body.new_password || '');
-    const confirm_password = String(req.body.confirm_password || '');
-    const now = Date.now();
-
-    if (!token) {
-      return res.status(400).render('reset-password', {
-        title: 'Reset Password',
-        error: 'Missing token.'
-      });
-    }
-
-    if (!new_password || new_password !== confirm_password) {
-      return res.status(400).render('reset-password', {
-        title: 'Reset Password',
-        token,
-        error: 'Passwords do not match.'
-      });
-    }
-
-    // same strength rules you already use elsewhere
-    const strong =
-      new_password.length >= 8 &&
-      /[a-z]/.test(new_password) &&
-      /[A-Z]/.test(new_password) &&
-      /[0-9]/.test(new_password) &&
-      /[^A-Za-z0-9]/.test(new_password);
-
-    if (!strong) {
-      return res.status(400).render('reset-password', {
-        title: 'Reset Password',
-        token,
-        error:
-          'Password must be at least 8 chars and include upper, lower, number, and symbol.'
-      });
-    }
-
-    const token_hash = crypto.createHash('sha256').update(token).digest('hex');
-
-    const row = await dbGet(
-      `SELECT id, user_id, expires_at, used
-       FROM password_resets
-       WHERE token_hash = ?
-       LIMIT 1`,
-      [token_hash]
-    );
-
-    if (!row || row.used !== 0 || row.expires_at < now) {
-      return res.status(400).render('reset-password', {
-        title: 'Reset Password',
-        error: 'Invalid or expired reset link.'
-      });
-    }
-
-    // Mark token as used first (prevents reuse even if something crashes later)
-    await dbRun(`UPDATE password_resets SET used = 1 WHERE id = ?`, [row.id]);
-
-    // Set new password
-    const newHash = await argon2.hash(new_password);
-    await dbRun(`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`, [
-      newHash,
-      now,
-      row.user_id
-    ]);
-
-    // Invalidate all sessions for this user (required)
-    await dbRun(`DELETE FROM sessions WHERE user_id = ?`, [row.user_id]);
-
-    // Clear cookie too
-    res.clearCookie('sessionId');
-
-    return res.render('login', {
-      title: 'Login',
-      message: 'Password reset successful. Please log in.'
-    });
-  } catch (err) {
-    console.error('reset-password POST error:', err);
-    return res.status(500).render('reset-password', {
-      title: 'Reset Password',
-      error: 'Server error. Please try again.'
-    });
-  }
-});
-
-/* ============================
-   PROFILE ROUTES (Required)
-============================ */
-
-// GET profile (renders page)
+// GET profile 
 app.get('/profile', requireAuth, async (req, res) => {
   const userId = res.locals.currentUser.id;
 
@@ -873,11 +670,14 @@ app.post('/profile/password', requireAuth, async (req, res) => {
 
   if (!isStrongPassword(new_password)) {
     return res.status(400).send(
-      'Password must be at least 8 chars and include upper, lower, number, and symbol.'
+      'Password must be at least 8 chars and include upper, lower, number, and symbol'
     );
   }
 
-  const row = await dbGet(`SELECT password_hash FROM users WHERE id = ?`, [userId]);
+  const row = await dbGet(
+    `SELECT password_hash FROM users WHERE id = ?`,
+    [userId]
+  );
   if (!row) return res.status(404).send('User not found');
 
   const ok = await argon2.verify(row.password_hash, current_password);
@@ -893,12 +693,19 @@ app.post('/profile/password', requireAuth, async (req, res) => {
     [newHash, now, userId]
   );
 
-  // invalidate all sessions
-  await dbRun(`DELETE FROM sessions WHERE user_id = ?`, [userId]);
+  // THIS is the critical part
+  await dbRun(
+    `DELETE FROM sessions WHERE user_id = ?`,
+    [userId]
+  );
 
-  res.clearCookie('sessionId');
+  // Clear correct cookie name
+  res.clearCookie('sid');
+
   res.redirect('/login');
 });
+
+
 
 // Comments feed (GET) -> SQLite + Pagination
 app.get('/comments', async (req, res) => {
@@ -927,7 +734,10 @@ app.get('/comments', async (req, res) => {
       `
       SELECT
         c.id,
+        c.user_id,
         c.display_name AS author,
+        u.name_color AS name_color,
+        u.avatar AS avatar,
         c.text,
         c.created_at AS createdAt,
         COALESCE(lc.like_count, 0) AS like_count,
@@ -936,6 +746,7 @@ app.get('/comments', async (req, res) => {
           ELSE 1
         END AS liked_by_me
       FROM comments c
+      JOIN users u ON u.id = c.user_id
       LEFT JOIN (
         SELECT
           comment_id,

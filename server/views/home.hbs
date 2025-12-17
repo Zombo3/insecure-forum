@@ -34,7 +34,6 @@
 </section>
 
 <script>
-  // IMPORTANT: wait until the full page is parsed (so main.hbs has created window.socket)
   window.addEventListener('DOMContentLoaded', () => {
     const chatBox = document.getElementById('chatBox');
     const chatForm = document.getElementById('chatForm');
@@ -46,25 +45,51 @@
       return;
     }
 
-    function addMsg(line) {
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function addMsg(user, text, nameColor) {
       const div = document.createElement('div');
-      div.textContent = line;
+
+      const safeUser = escapeHtml(user);
+      const safeText = escapeHtml(text);
+
+      if (nameColor) {
+        div.innerHTML =
+          `<strong style="color:${nameColor}">${safeUser}</strong>: ${safeText}`;
+      } else {
+        div.textContent = `${user}: ${text}`;
+      }
+
       chatBox.appendChild(div);
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
     // Load chat history on connect
     sock.on('chat:history', (messages) => {
-      // Clear the initial "Chat connected..." line
       chatBox.innerHTML = '';
       for (const msg of messages) {
-        addMsg(`${msg.user}: ${msg.message || msg.text}`);
+        addMsg(
+          msg.user,
+          msg.message || msg.text,
+          msg.name_color
+        );
       }
     });
 
     // Live messages
     sock.on('chat:message', (msg) => {
-      addMsg(`${msg.user}: ${msg.message || msg.text}`);
+      addMsg(
+        msg.user,
+        msg.message || msg.text,
+        msg.name_color
+      );
     });
 
     chatForm.addEventListener('submit', (e) => {
