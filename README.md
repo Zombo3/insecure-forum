@@ -84,6 +84,7 @@ pm2 status
 
 ## Project Structure
 
+```text
 insecure-forum/
 ├── README.md
 ├── docker-compose.yml
@@ -120,11 +121,7 @@ insecure-forum/
         ├── edit-comment.hbs
         ├── login.hbs
         ├── register.hbs
-        ├── profile.hbs
-        ├── forgot-password.hbs
-        └── reset-password.hbs
-
-
+        └── profile.hbs
 
 ## Routes
 
@@ -165,43 +162,25 @@ insecure-forum/
 
 ### Chat API Details (JSON)
 
-All chat API endpoints require the user to be logged in (valid DB-backed session cookie).
+All chat API endpoints require the user to be logged in.
 
-#### GET `/api/chat/history`
-Returns recent chat messages.
-
-**Response (200)**
-```json
-{
-  "messages": [
-    {
-      "id": 1,
-      "user_id": 2,
-      "display_name": "ExampleUser",
-      "name_color": "#00ff88",
-      "avatar": "zombo3",
-      "message": "Hello!",
-      "created_at": 1730000000,
-      "room_id": 1
-    }
-  ]
-}
-
-Errors
-401 Unauthorized if not logged in
-POST /api/chat/send
+#### POST `/api/chat/send`
 Sends a new chat message and broadcasts it via Socket.IO.
-Request Body
+
+**Request Body**
+```json
 {
   "message": "Hello everyone",
   "room_id": 1
 }
+```
 Response (200)
+```
 { "ok": true }
+```
 Errors
 401 Unauthorized if not logged in
-400 Bad Request if message is missing/empty
-
+400 Bad Request if message is missing or empty
 
 ## Environment Variables & Configuration
 
